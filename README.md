@@ -58,17 +58,6 @@ nano .env          # add your real API keys
 docker compose up -d
 ```
 
-### pip
-
-```bash
-pip install proxai
-cp .env.example .env
-nano .env
-
-proxai start           # foreground
-proxai start --daemon  # background
-```
-
 ### From source
 
 ```bash
@@ -144,12 +133,12 @@ Visit `http://localhost:8091` to see:
 ## CLI
 
 ```bash
-proxai start              # Start proxy (foreground)
-proxai start --daemon     # Start in background
-proxai stop               # Stop background server
-proxai status             # Check if running
-proxai logs --tail 100    # View recent logs
-proxai stats              # Show usage statistics
+python3.10 -m proxai.cli start              # Start proxy (foreground)
+python3.10 -m proxai.cli start --daemon     # Start in background
+python3.10 -m proxai.cli stop               # Stop background server
+python3.10 -m proxai.cli status             # Check if running
+python3.10 -m proxai.cli logs --tail 100    # View recent logs
+python3.10 -m proxai.cli stats              # Show usage statistics
 ```
 
 ---
