@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "httpx", "ruff"]
+dev = ["pytest", "anyio[trio]", "pytest-anyio", "httpx", "ruff"]
 
 [project.urls]
 Homepage = "https://github.com/HuyNguyenUTA/proxai"
@@ -45,6 +45,9 @@ proxai = "proxai.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["proxai*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 100
