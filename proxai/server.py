@@ -72,7 +72,11 @@ def parse_usage_from_chunk(data: bytes, provider_key: str) -> tuple[int, int, Op
                 continue
 
             usage = obj.get("usage", {})
-            # OpenAI usage format (non-streaming final chunk)
+            # Anthropic non-streaming format
+            if "input_tokens" in usage:
+                input_tokens = max(input_tokens, usage.get("input_tokens", 0))
+                output_tokens = max(output_tokens, usage.get("output_tokens", 0))
+            # OpenAI / non-streaming format
             if "prompt_tokens" in usage:
                 input_tokens = usage.get("prompt_tokens", 0)
                 output_tokens = usage.get("completion_tokens", 0)

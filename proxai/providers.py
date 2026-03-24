@@ -75,7 +75,14 @@ MODEL_PRICING: dict[str, dict] = {
 
 def estimate_cost(model: str, input_tokens: int, output_tokens: int) -> float:
     """Estimate cost in USD for a request."""
+    # Exact match first, then prefix match (handles date-suffixed model names
+    # e.g. claude-haiku-4-5-20251001 matches claude-haiku-4-5)
     pricing = MODEL_PRICING.get(model)
+    if not pricing:
+        for key, p in MODEL_PRICING.items():
+            if model.startswith(key):
+                pricing = p
+                break
     if not pricing:
         return 0.0
     return (
