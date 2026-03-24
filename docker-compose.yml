@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  proxai:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8090:8090"    # Proxy
+      - "8091:8091"    # Dashboard
+    volumes:
+      - proxai-data:/root/.proxai
+    environment:
+      PROXAI_HOST: "0.0.0.0"
+      PROXAI_DASHBOARD_ENABLED: "true"
+
+volumes:
+  proxai-data:

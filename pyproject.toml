@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "proxai"
+version = "0.1.0"
+description = "API key proxy gateway for AI providers — protect your keys from your AI agent"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Huy Nguyen", email = "huy.nguyen.uta@gmail.com" }]
+keywords = ["ai", "proxy", "api", "anthropic", "openai", "security", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "click>=8.1.0",
+    "jinja2>=3.1.0",
+    "aiofiles>=23.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "httpx", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/HuyNguyenUTA/proxai"
+Repository = "https://github.com/HuyNguyenUTA/proxai"
+Issues = "https://github.com/HuyNguyenUTA/proxai/issues"
+
+[project.scripts]
+proxai = "proxai.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["proxai*"]
+
+[tool.ruff]
+line-length = 100

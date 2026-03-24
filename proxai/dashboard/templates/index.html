@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProxAI Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; }
+  header { background: #1a1d27; border-bottom: 1px solid #2d3748; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 20px; font-weight: 700; color: #7c3aed; }
+  header span { font-size: 12px; color: #64748b; background: #1e293b; padding: 2px 8px; border-radius: 4px; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+  .card { background: #1a1d27; border: 1px solid #2d3748; border-radius: 12px; padding: 20px; }
+  .card h3 { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: #e2e8f0; }
+  .stat-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .providers { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+  .provider-badge { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500; }
+  .provider-badge.ok { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+  .provider-badge.missing { background: #450a0a; color: #f87171; border: 1px solid #7f1d1d; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; color: #64748b; font-weight: 500; border-bottom: 1px solid #2d3748; }
+  td { padding: 8px 12px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  tr:hover td { background: #1e293b; }
+  .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-ok { background: #052e16; color: #4ade80; }
+  .badge-err { background: #450a0a; color: #f87171; }
+  .section-title { font-size: 15px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
+  canvas { max-height: 220px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚡ ProxAI</h1>
+  <span id="version">v0.1.0</span>
+  <span id="last-updated" style="margin-left:auto;"></span>
+</header>
+<div class="container">
+  <!-- Provider Status -->
+  <div class="providers" id="providers"></div>
+
+  <!-- Today Stats -->
+  <div class="grid-4" id="today-stats">
+    <div class="card"><h3>Requests Today</h3><div class="stat-value" id="s-req">—</div></div>
+    <div class="card"><h3>Tokens Today</h3><div class="stat-value" id="s-tok">—</div></div>
+    <div class="card"><h3>Cost Today</h3><div class="stat-value" id="s-cost">—</div></div>
+    <div class="card"><h3>Monthly Cost</h3><div class="stat-value" id="s-mcost">—</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid-2">
+    <div class="card">
+      <p class="section-title">Requests by Provider (30d)</p>
+      <canvas id="chart-requests"></canvas>
+    </div>
+    <div class="card">
+      <p class="section-title">Cost by Provider (30d, USD)</p>
+      <canvas id="chart-cost"></canvas>
+    </div>
+  </div>
+
+  <!-- Recent Requests -->
+  <div class="card">
+    <p class="section-title">Recent Requests</p>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Provider</th><th>Model</th><th>Status</th><th>Tokens</th><th>Cost</th><th>Latency</th></tr>
+      </thead>
+      <tbody id="requests-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#7c3aed','#2563eb','#059669','#d97706','#dc2626','#0891b2'];
+let chartReq, chartCost;
+
+function fmt(n, d=0) {
+  if (n == null) return '—';
+  if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toFixed ? n.toFixed(d) : n;
+}
+
+function timeSince(ts) {
+  const d = new Date(ts * 1000);
+  return d.toLocaleTimeString();
+}
+
+async function refresh() {
+  const [stats, health] = await Promise.all([
+    fetch('/api/stats').then(r=>r.json()),
+    fetch('/api/health').then(r=>r.json()),
+  ]);
+
+  // Provider badges
+  document.getElementById('providers').innerHTML = Object.entries(health)
+    .map(([k,ok]) => `<span class="provider-badge ${ok?'ok':'missing'}">${ok?'✓':'✗'} ${k}</span>`)
+    .join('');
+
+  // Today stats
+  const t = stats.today || {};
+  document.getElementById('s-req').textContent = fmt(t.requests) || '0';
+  document.getElementById('s-tok').textContent = fmt(t.total_tokens) || '0';
+  document.getElementById('s-cost').textContent = t.cost_usd != null ? '$'+t.cost_usd.toFixed(4) : '$0.0000';
+
+  const monthly_cost = (stats.monthly||[]).reduce((s,r) => s + (r.cost_usd||0), 0);
+  document.getElementById('s-mcost').textContent = '$' + monthly_cost.toFixed(4);
+
+  // Charts
+  const labels = (stats.monthly||[]).map(r => r.provider);
+  const reqData = (stats.monthly||[]).map(r => r.requests||0);
+  const costData = (stats.monthly||[]).map(r => parseFloat((r.cost_usd||0).toFixed(4)));
+
+  if (chartReq) chartReq.destroy();
+  if (chartCost) chartCost.destroy();
+
+  const chartOpts = (data, label, color) => ({
+    type: 'bar',
+    data: { labels, datasets: [{ label, data, backgroundColor: COLORS.slice(0,labels.length), borderRadius: 6 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color:'#94a3b8' }, grid: { color:'#1e293b' } }, y: { ticks: { color:'#94a3b8' }, grid: { color:'#1e293b' } } } }
+  });
+
+  chartReq = new Chart(document.getElementById('chart-requests'), chartOpts(reqData, 'Requests', COLORS));
+  chartCost = new Chart(document.getElementById('chart-cost'), chartOpts(costData, 'Cost USD', COLORS));
+
+  // Recent requests table
+  const rows = (stats.recent||[]).map(r => `
+    <tr>
+      <td>${timeSince(r.timestamp)}</td>
+      <td>${r.provider}</td>
+      <td style="color:#94a3b8;font-size:11px">${r.model||'—'}</td>
+      <td><span class="badge ${r.status_code<400?'badge-ok':'badge-err'}">${r.status_code}</span></td>
+      <td>${fmt((r.input_tokens||0)+(r.output_tokens||0))}</td>
+      <td>$${(r.cost_usd||0).toFixed(5)}</td>
+      <td>${r.latency_ms||0}ms</td>
+    </tr>`).join('');
+  document.getElementById('requests-body').innerHTML = rows || '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:24px">No requests yet</td></tr>';
+
+  document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
