@@ -46,6 +46,7 @@ class TestRequest(BaseModel):
     model: str
     message: str
     max_tokens: int = 512
+    custom_url: str | None = None
 
 
 @dashboard_app.post("/api/test")
@@ -53,23 +54,27 @@ async def api_test(req: TestRequest):
     """Send a test request through the proxy and return the response."""
     proxy_host = os.getenv("PROXAI_HOST", "127.0.0.1")
     proxy_port = os.getenv("PROXAI_PORT", "8090")
-    provider = PROVIDERS.get(req.provider)
 
-    if not provider:
-        return {"error": f"Unknown provider: {req.provider}"}
-
-    # Build request for this provider
-    if req.provider == "anthropic":
+    if req.provider == "custom":
+        if not req.custom_url:
+            return {"error": "custom_url is required for custom providers"}
+        url = req.custom_url.rstrip("/") + "/chat/completions"
+        headers = {"Authorization": "Bearer proxied", "Content-Type": "application/json"}
+        body = {"model": req.model, "max_tokens": req.max_tokens,
+                "messages": [{"role": "user", "content": req.message}]}
+    elif req.provider == "anthropic":
         url = f"http://{proxy_host}:{proxy_port}/anthropic/v1/messages"
         headers = {"x-api-key": "proxied", "Content-Type": "application/json",
                    "anthropic-version": "2023-06-01"}
         body = {"model": req.model, "max_tokens": req.max_tokens,
                 "messages": [{"role": "user", "content": req.message}]}
-    else:
+    elif req.provider in PROVIDERS:
         url = f"http://{proxy_host}:{proxy_port}/{req.provider}/chat/completions"
         headers = {"Authorization": "Bearer proxied", "Content-Type": "application/json"}
         body = {"model": req.model, "max_tokens": req.max_tokens,
                 "messages": [{"role": "user", "content": req.message}]}
+    else:
+        return {"error": f"Unknown provider: {req.provider}"}
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:

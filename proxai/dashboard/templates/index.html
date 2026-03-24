@@ -94,7 +94,12 @@
           <option value="openai">OpenAI</option>
           <option value="deepseek">DeepSeek</option>
           <option value="nvidia">NVIDIA</option>
+          <option value="custom">Custom…</option>
         </select>
+      </div>
+      <div class="pg-controls" id="pg-custom-url-wrap" style="display:none;flex:2">
+        <label>Base URL <span style="color:#64748b;font-size:11px">— e.g. http://localhost:11434/v1</span></label>
+        <input type="text" id="pg-custom-url" placeholder="https://your-provider.com/v1" style="width:100%" />
       </div>
       <div class="pg-controls" style="flex:2">
         <label>Model <span id="pg-model-hint" style="color:#7c3aed;font-size:11px"></span></label>
@@ -208,8 +213,10 @@ const MODELS = {
 };
 
 function onProviderChange() {
+  const provider = document.getElementById('pg-provider').value;
   document.getElementById('pg-model').value = '';
   document.getElementById('pg-model-hint').textContent = '';
+  document.getElementById('pg-custom-url-wrap').style.display = provider === 'custom' ? 'block' : 'none';
   hideSuggestions();
 }
 
@@ -258,7 +265,9 @@ async function sendTest() {
   const model = document.getElementById('pg-model').value.trim();
   const message = document.getElementById('pg-message').value.trim();
   const max_tokens = parseInt(document.getElementById('pg-tokens').value) || 512;
+  const custom_url = document.getElementById('pg-custom-url').value.trim();
 
+  if (provider === 'custom' && !custom_url) { out.textContent = 'Please enter a base URL for your custom provider.'; out.className = 'pg-response err'; return; }
   if (!model) { out.textContent = 'Please enter a model name.'; out.className = 'pg-response err'; return; }
   if (!message) { out.textContent = 'Please enter a message.'; out.className = 'pg-response err'; return; }
 
@@ -272,7 +281,7 @@ async function sendTest() {
     const res = await fetch('/api/test', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({provider, model, message, max_tokens}),
+      body: JSON.stringify({provider, model, message, max_tokens, custom_url: custom_url || null}),
     });
     const data = await res.json();
     const ms = Date.now() - t0;
