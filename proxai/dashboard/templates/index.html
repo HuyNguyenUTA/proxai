@@ -51,6 +51,24 @@
     color: #94a3b8; min-height: 60px; max-height: 300px; overflow-y: auto; }
   .pg-response.ok { border-color: #166534; color: #4ade80; }
   .pg-response.err { border-color: #7f1d1d; color: #f87171; }
+  .steps { counter-reset: step; display: flex; flex-direction: column; gap: 16px; }
+  .step { display: flex; gap: 14px; align-items: flex-start; }
+  .step-num { background: #7c3aed; color: #fff; border-radius: 50%; width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    font-weight: 700; flex-shrink: 0; margin-top: 2px; }
+  .step-body { flex: 1; }
+  .step-body p { font-size: 13px; color: #94a3b8; margin-bottom: 8px; }
+  .step-body strong { color: #e2e8f0; }
+  .code-block { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px;
+    padding: 12px 16px; font-family: monospace; font-size: 12px; color: #7c3aed;
+    position: relative; white-space: pre; overflow-x: auto; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: #2d3748; border: none;
+    color: #94a3b8; border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+  .copy-btn:hover { background: #7c3aed; color: #fff; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+  .tab { padding: 5px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid #2d3748; color: #64748b; background: none; }
+  .tab.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
 </style>
 </head>
 <body>
@@ -80,6 +98,122 @@
     <div class="card">
       <p class="section-title">Cost by Provider (30d, USD)</p>
       <canvas id="chart-cost"></canvas>
+    </div>
+  </div>
+
+  <!-- Integration Guide -->
+  <div class="card" style="margin-bottom:24px">
+    <p class="section-title">OpenClaw Integration</p>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('anthropic-tab', this)">Anthropic</button>
+      <button class="tab" onclick="switchTab('openai-tab', this)">OpenAI</button>
+      <button class="tab" onclick="switchTab('deepseek-tab', this)">DeepSeek</button>
+      <button class="tab" onclick="switchTab('all-tab', this)">All Providers</button>
+    </div>
+
+    <div id="anthropic-tab" class="tab-panel">
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">
+          <strong>Open your openclaw.json config file</strong>
+          <p>Find it in your OpenClaw settings or config directory.</p>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">
+          <strong>Replace the Anthropic provider config</strong>
+          <div class="code-block" id="code-anthropic">{
+  "providers": {
+    "anthropic": {
+      "baseUrl": "http://127.0.0.1:8090/anthropic",
+      "apiKey": "proxied"
+    }
+  }
+}</div>
+          <button class="copy-btn" onclick="copyCode('code-anthropic', this)">Copy</button>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">
+          <strong>Restart OpenClaw</strong>
+          <p>All Anthropic requests will now route through ProxAI. Your real key stays in <code style="color:#7c3aed">.env</code>.</p>
+        </div></div>
+      </div>
+    </div>
+
+    <div id="openai-tab" class="tab-panel" style="display:none">
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">
+          <strong>Open your openclaw.json config file</strong>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">
+          <strong>Replace the OpenAI provider config</strong>
+          <div class="code-block" id="code-openai">{
+  "providers": {
+    "openai": {
+      "baseUrl": "http://127.0.0.1:8090/openai",
+      "apiKey": "proxied"
+    }
+  }
+}</div>
+          <button class="copy-btn" onclick="copyCode('code-openai', this)">Copy</button>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">
+          <strong>Restart OpenClaw</strong>
+        </div></div>
+      </div>
+    </div>
+
+    <div id="deepseek-tab" class="tab-panel" style="display:none">
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">
+          <strong>Open your openclaw.json config file</strong>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">
+          <strong>Replace the DeepSeek provider config</strong>
+          <div class="code-block" id="code-deepseek">{
+  "providers": {
+    "deepseek": {
+      "baseUrl": "http://127.0.0.1:8090/deepseek",
+      "apiKey": "proxied",
+      "api": "openai-completions"
+    }
+  }
+}</div>
+          <button class="copy-btn" onclick="copyCode('code-deepseek', this)">Copy</button>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">
+          <strong>Restart OpenClaw</strong>
+        </div></div>
+      </div>
+    </div>
+
+    <div id="all-tab" class="tab-panel" style="display:none">
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">
+          <strong>Open your openclaw.json config file</strong>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">
+          <strong>Replace all providers at once</strong>
+          <div class="code-block" id="code-all">{
+  "providers": {
+    "anthropic": {
+      "baseUrl": "http://127.0.0.1:8090/anthropic",
+      "apiKey": "proxied"
+    },
+    "openai": {
+      "baseUrl": "http://127.0.0.1:8090/openai",
+      "apiKey": "proxied"
+    },
+    "deepseek": {
+      "baseUrl": "http://127.0.0.1:8090/deepseek",
+      "apiKey": "proxied",
+      "api": "openai-completions"
+    }
+  }
+}</div>
+          <button class="copy-btn" onclick="copyCode('code-all', this)">Copy</button>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">
+          <strong>Restart OpenClaw</strong>
+          <p>All providers now route through ProxAI. Real keys stay in <code style="color:#7c3aed">.env</code> — OpenClaw never sees them.</p>
+        </div></div>
+      </div>
     </div>
   </div>
 
@@ -252,6 +386,19 @@ function pickModel(name) {
   document.getElementById('pg-model').value = name;
   document.getElementById('pg-model-hint').textContent = '';
   hideSuggestions();
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).style.display = 'block';
+  btn.classList.add('active');
+}
+
+function copyCode(id, btn) {
+  navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = 'Copy', 2000);
 }
 
 refresh();
