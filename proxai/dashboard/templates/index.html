@@ -89,16 +89,19 @@
     <div class="pg-row">
       <div class="pg-controls">
         <label>Provider</label>
-        <select id="pg-provider">
+        <select id="pg-provider" onchange="onProviderChange()">
           <option value="anthropic">Anthropic</option>
           <option value="openai">OpenAI</option>
           <option value="deepseek">DeepSeek</option>
           <option value="nvidia">NVIDIA</option>
         </select>
       </div>
-      <div class="pg-controls">
-        <label>Model</label>
-        <input type="text" id="pg-model" placeholder="e.g. claude-opus-4-5" style="width:100%" />
+      <div class="pg-controls" style="flex:2">
+        <label>Model <span id="pg-model-hint" style="color:#7c3aed;font-size:11px"></span></label>
+        <div style="position:relative">
+          <input type="text" id="pg-model" placeholder="e.g. claude-opus-4-5" style="width:100%" oninput="filterSuggestions()" onfocus="showSuggestions()" onblur="setTimeout(hideSuggestions,150)" />
+          <div id="pg-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;background:#1a1d27;border:1px solid #7c3aed;border-radius:8px;z-index:10;margin-top:4px;overflow:hidden"></div>
+        </div>
       </div>
       <div class="pg-controls" style="max-width:110px">
         <label>Max Tokens</label>
@@ -195,6 +198,53 @@ async function refresh() {
   document.getElementById('requests-body').innerHTML = rows || '<tr><td colspan="7" style="text-align:center;color:#64748b;padding:24px">No requests yet</td></tr>';
 
   document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+const MODELS = {
+  anthropic: ['claude-opus-4-5', 'claude-sonnet-4-5', 'claude-haiku-4-5', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'],
+  openai:    ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o1-mini'],
+  deepseek:  ['deepseek-chat', 'deepseek-reasoner'],
+  nvidia:    ['meta/llama-3.1-70b-instruct', 'meta/llama-3.1-8b-instruct', 'mistralai/mistral-7b-instruct-v0.3'],
+};
+
+function onProviderChange() {
+  document.getElementById('pg-model').value = '';
+  document.getElementById('pg-model-hint').textContent = '';
+  hideSuggestions();
+}
+
+function showSuggestions() {
+  filterSuggestions(true);
+}
+
+function hideSuggestions() {
+  document.getElementById('pg-suggestions').style.display = 'none';
+}
+
+function filterSuggestions(showAll = false) {
+  const provider = document.getElementById('pg-provider').value;
+  const input = document.getElementById('pg-model').value.toLowerCase();
+  const box = document.getElementById('pg-suggestions');
+  const hint = document.getElementById('pg-model-hint');
+  const models = MODELS[provider] || [];
+
+  const filtered = showAll && !input ? models : models.filter(m => m.includes(input));
+  if (!filtered.length) { hideSuggestions(); hint.textContent = ''; return; }
+
+  hint.textContent = '— pick one or type your own';
+  box.innerHTML = filtered.map(m =>
+    `<div style="padding:8px 12px;cursor:pointer;font-size:12px;color:#cbd5e1;border-bottom:1px solid #2d3748"
+      onmousedown="pickModel('${m}')"
+      onmouseover="this.style.background='#2d3748'"
+      onmouseout="this.style.background=''">${m}</div>`
+  ).join('');
+  box.style.display = 'block';
+}
+
+function pickModel(name) {
+  document.getElementById('pg-model').value = name;
+  document.getElementById('pg-model-hint').textContent = '';
+  hideSuggestions();
 }
 
 refresh();
