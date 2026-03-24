@@ -13,6 +13,10 @@ Keep your real keys out of your AI agent's reach.
 
 ---
 
+![ProxAI Dashboard](docs/image.png)
+
+---
+
 ## What is ProxAI?
 
 When you run an AI agent (like OpenClaw), it needs API keys to call LLM providers. Normally those keys sit in a config file the agent can read — meaning a jailbreak or prompt injection could expose them.
@@ -132,6 +136,8 @@ Visit `http://localhost:8091` to see:
 - Charts by provider
 - Recent request log with latency and status codes
 - **Playground** — send requests to any model directly from the UI
+
+![ProxAI Playground](docs/image%20copy.png)
 
 ---
 
