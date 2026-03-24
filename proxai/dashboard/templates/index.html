@@ -31,6 +31,26 @@
   .badge-err { background: #450a0a; color: #f87171; }
   .section-title { font-size: 15px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
   canvas { max-height: 220px; }
+  .playground { margin-bottom: 24px; }
+  .pg-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .pg-row label { font-size: 12px; color: #64748b; display: block; margin-bottom: 4px; }
+  select, input[type=text], input[type=number], textarea {
+    background: #0f1117; border: 1px solid #2d3748; color: #e2e8f0;
+    border-radius: 8px; padding: 8px 12px; font-size: 13px; outline: none;
+    font-family: inherit;
+  }
+  select:focus, input:focus, textarea:focus { border-color: #7c3aed; }
+  textarea { width: 100%; resize: vertical; min-height: 80px; }
+  .pg-controls { flex: 1; min-width: 140px; }
+  .btn { background: #7c3aed; color: #fff; border: none; border-radius: 8px;
+    padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn:hover { background: #6d28d9; }
+  .btn:disabled { background: #4c1d95; cursor: not-allowed; opacity: 0.6; }
+  .pg-response { background: #0f1117; border: 1px solid #2d3748; border-radius: 8px;
+    padding: 16px; font-size: 12px; font-family: monospace; white-space: pre-wrap;
+    color: #94a3b8; min-height: 60px; max-height: 300px; overflow-y: auto; }
+  .pg-response.ok { border-color: #166534; color: #4ade80; }
+  .pg-response.err { border-color: #7f1d1d; color: #f87171; }
 </style>
 </head>
 <body>
@@ -61,6 +81,39 @@
       <p class="section-title">Cost by Provider (30d, USD)</p>
       <canvas id="chart-cost"></canvas>
     </div>
+  </div>
+
+  <!-- Playground -->
+  <div class="card playground">
+    <p class="section-title">Playground</p>
+    <div class="pg-row">
+      <div class="pg-controls">
+        <label>Provider</label>
+        <select id="pg-provider">
+          <option value="anthropic">Anthropic</option>
+          <option value="openai">OpenAI</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="nvidia">NVIDIA</option>
+        </select>
+      </div>
+      <div class="pg-controls">
+        <label>Model</label>
+        <input type="text" id="pg-model" placeholder="e.g. claude-opus-4-5" style="width:100%" />
+      </div>
+      <div class="pg-controls" style="max-width:110px">
+        <label>Max Tokens</label>
+        <input type="number" id="pg-tokens" value="512" min="1" max="4096" style="width:100%" />
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:#64748b;display:block;margin-bottom:4px">Message</label>
+      <textarea id="pg-message" placeholder="Type your message…"></textarea>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <button class="btn" id="pg-send" onclick="sendTest()">Send</button>
+      <span id="pg-status" style="font-size:12px;color:#64748b"></span>
+    </div>
+    <div class="pg-response" id="pg-response">Response will appear here…</div>
   </div>
 
   <!-- Recent Requests -->
@@ -146,6 +199,61 @@ async function refresh() {
 
 refresh();
 setInterval(refresh, 5000);
+
+async function sendTest() {
+  const btn = document.getElementById('pg-send');
+  const out = document.getElementById('pg-response');
+  const status = document.getElementById('pg-status');
+  const provider = document.getElementById('pg-provider').value;
+  const model = document.getElementById('pg-model').value.trim();
+  const message = document.getElementById('pg-message').value.trim();
+  const max_tokens = parseInt(document.getElementById('pg-tokens').value) || 512;
+
+  if (!model) { out.textContent = 'Please enter a model name.'; out.className = 'pg-response err'; return; }
+  if (!message) { out.textContent = 'Please enter a message.'; out.className = 'pg-response err'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Sending…';
+  out.className = 'pg-response';
+  out.textContent = '…';
+
+  try {
+    const t0 = Date.now();
+    const res = await fetch('/api/test', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({provider, model, message, max_tokens}),
+    });
+    const data = await res.json();
+    const ms = Date.now() - t0;
+
+    if (data.error) {
+      out.className = 'pg-response err';
+      out.textContent = 'Error: ' + data.error;
+      status.textContent = '';
+    } else {
+      const body = data.body;
+      // Extract text from response
+      let text = '';
+      if (body.content) text = body.content.map(c => c.text||'').join('');          // Anthropic
+      else if (body.choices) text = body.choices[0]?.message?.content || '';        // OpenAI
+      else text = JSON.stringify(body, null, 2);
+
+      out.className = data.status < 400 ? 'pg-response ok' : 'pg-response err';
+      out.textContent = data.status < 400 ? text : JSON.stringify(body, null, 2);
+      const usage = body.usage || {};
+      const inp = usage.input_tokens || usage.prompt_tokens || 0;
+      const outp = usage.output_tokens || usage.completion_tokens || 0;
+      status.textContent = `${ms}ms · ${inp}in / ${outp}out tokens`;
+    }
+  } catch (e) {
+    out.className = 'pg-response err';
+    out.textContent = 'Request failed: ' + e.message;
+    status.textContent = '';
+  } finally {
+    btn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>
