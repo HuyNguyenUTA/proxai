@@ -58,6 +58,30 @@ proxai start
 proxai start --daemon
 ```
 
+## Running from source
+
+```bash
+git clone https://github.com/HuyNguyenUTA/proxai
+cd proxai
+
+# Requires Python 3.10+
+python3.10 -m pip install -e .
+
+# Create config and fill in your real API keys
+cp .env.example .env
+nano .env
+
+# Start (foreground)
+python3.10 -m proxai.cli start
+
+# Or start in background
+python3.10 -m proxai.cli start --daemon
+
+# Check status / stop
+python3.10 -m proxai.cli status
+python3.10 -m proxai.cli stop
+```
+
 ### CLI Commands
 
 ```bash

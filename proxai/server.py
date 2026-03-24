@@ -1,5 +1,6 @@
 """ProxAI FastAPI proxy server with streaming support."""
 
+import asyncio
 import json
 import logging
 import os
@@ -58,20 +59,23 @@ def parse_usage_from_chunk(data: bytes, provider_key: str) -> tuple[int, int, Op
             if "model" in obj:
                 model = obj["model"]
 
-            # Anthropic usage format
-            usage = obj.get("usage", {})
-            if "input_tokens" in usage:
-                input_tokens += usage.get("input_tokens", 0)
-                output_tokens += usage.get("output_tokens", 0)
-
-            # OpenAI usage format
-            if "prompt_tokens" in usage:
-                input_tokens += usage.get("prompt_tokens", 0)
-                output_tokens += usage.get("completion_tokens", 0)
-
-            # Anthropic message_delta
+            # Anthropic: final message_stop event has the authoritative usage block
             if obj.get("type") == "message_delta":
-                output_tokens += obj.get("usage", {}).get("output_tokens", 0)
+                usage = obj.get("usage", {})
+                output_tokens = max(output_tokens, usage.get("output_tokens", 0))
+                continue
+
+            # Anthropic: message_start has input token count
+            if obj.get("type") == "message_start":
+                usage = obj.get("message", {}).get("usage", {})
+                input_tokens = max(input_tokens, usage.get("input_tokens", 0))
+                continue
+
+            usage = obj.get("usage", {})
+            # OpenAI usage format (non-streaming final chunk)
+            if "prompt_tokens" in usage:
+                input_tokens = usage.get("prompt_tokens", 0)
+                output_tokens = usage.get("completion_tokens", 0)
 
     except Exception:
         pass
@@ -82,6 +86,13 @@ def parse_usage_from_chunk(data: bytes, provider_key: str) -> tuple[int, int, Op
 async def startup():
     init_db()
     logger.info("ProxAI started — database initialized")
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    configured = {k: bool(os.getenv(p.env_key)) for k, p in PROVIDERS.items()}
+    return {"status": "ok", "providers": configured}
 
 
 @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
@@ -110,6 +121,11 @@ async def proxy(request: Request, path: str):
     real_key = os.getenv(provider.env_key, "")
     if not real_key:
         logger.warning(f"No API key configured for {provider.name} ({provider.env_key})")
+        return Response(
+            content=json.dumps({"error": f"No API key configured for provider: {provider.name}"}),
+            status_code=503,
+            media_type="application/json",
+        )
 
     # Build upstream URL
     upstream_path = full_path[len(provider.route_prefix):]
@@ -181,17 +197,21 @@ async def proxy(request: Request, path: str):
         finally:
             latency_ms = int((time.time() - start_time) * 1000)
             cost = estimate_cost(final_model or "", total_input, total_output)
-            log_request(
-                provider=provider_key,
-                model=final_model,
-                method=request.method,
-                path=full_path,
-                status_code=status,
-                input_tokens=total_input,
-                output_tokens=total_output,
-                cost_usd=cost,
-                latency_ms=latency_ms,
-                error=error_msg,
+            loop = asyncio.get_event_loop()
+            loop.run_in_executor(
+                None,
+                lambda: log_request(
+                    provider=provider_key,
+                    model=final_model,
+                    method=request.method,
+                    path=full_path,
+                    status_code=status,
+                    input_tokens=total_input,
+                    output_tokens=total_output,
+                    cost_usd=cost,
+                    latency_ms=latency_ms,
+                    error=error_msg,
+                ),
             )
 
     # Determine content type for response
@@ -199,10 +219,3 @@ async def proxy(request: Request, path: str):
     media_type = "text/event-stream" if is_streaming or "event-stream" in accept else "application/json"
 
     return StreamingResponse(stream_response(), media_type=media_type)
-
-
-@app.get("/health")
-async def health():
-    """Health check endpoint."""
-    configured = {k: bool(os.getenv(p.env_key)) for k, p in PROVIDERS.items()}
-    return {"status": "ok", "providers": configured}

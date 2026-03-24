@@ -5,18 +5,17 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-from starlette.requests import Request
 
 from ..db import get_recent_requests, get_stats, get_today_stats
 
 dashboard_app = FastAPI(title="ProxAI Dashboard", docs_url=None)
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+_TEMPLATE = Path(__file__).parent / "templates" / "index.html"
 
 
 @dashboard_app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+async def index():
+    return HTMLResponse(_TEMPLATE.read_text())
 
 
 @dashboard_app.get("/api/stats")
